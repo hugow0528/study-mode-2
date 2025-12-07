@@ -274,13 +274,18 @@
         function setTheme(t) {
             document.body.setAttribute('data-theme', t);
             localStorage.setItem('hkdse_theme', t);
-            // Update AI Avatar color based on theme is handled by CSS vars if SVG used currentColor, 
-            // but for base64 SVG we might need to swap if we want perfect color match. 
-            // For now, the provided grey SVG works on both.
         }
 
         // --- Chat Logic ---
         function createNewChat() {
+            // 1. CLEANUP: Delete empty chats before creating a new one
+            Object.keys(chatHistories).forEach(id => {
+                if (!chatHistories[id].messages || chatHistories[id].messages.length === 0) {
+                    delete chatHistories[id];
+                }
+            });
+
+            // 2. Create New
             const id = Date.now().toString();
             chatHistories[id] = { title: 'New Topic', messages: [], model: modelSelect.value };
             activeChatId = id;
@@ -334,17 +339,17 @@
 
         function renderChatUI() {
             chatContainer.innerHTML = '';
-            const messages = chatHistories[activeChatId].messages;
+            const messages = chatHistories[activeChatId]?.messages || [];
             
             if (messages.length === 0) {
-                // Intro Message
+                // Intro Message (REMOVED MODEL NAME HERE)
                 const introDiv = document.createElement('div');
                 introDiv.className = 'message-row ai';
                 introDiv.innerHTML = `
                     <img src="${AI_AVATAR}" class="message-avatar">
                     <div class="message-content-wrapper">
                         <div class="message-bubble">
-                            Hello! ${userProfile.name}. 👋<br>準備好溫習邊一科未？(Model: ${modelSelect.options[modelSelect.selectedIndex].text})
+                            Hello! ${userProfile.name}. 👋<br>準備好溫習邊一科未？
                         </div>
                     </div>`;
                 chatContainer.appendChild(introDiv);
