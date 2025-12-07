@@ -123,4 +123,3 @@ export default async function handler(req, res) {
 以後你在香港寫 App，直接 Call 這個網址，就等同於在美國 Call API 一樣，暢通無阻！😎
 
 **Happy Coding! 唔好俾 Region Lock 阻住你改變世界！**
-```
