@@ -35,13 +35,11 @@ export default async function handler(req, res) {
 
     // 1. 處理標題生成 vs 普通對話
     if (isTitleGeneration) {
-      // 標題生成模式：不需要 System Prompt，只需要最近的對話
       fullMessages = [
         ...messages,
         { role: 'user', content: 'Summarize our conversation topic in 3-5 words. Output ONLY the title, no other text.' }
       ];
     } else {
-      // 普通學習模式：加入 System Prompt
       const studentInfo = `User Context: Student Name: ${userProfile?.name || 'Student'}, Form: ${userProfile?.form || 'S5'}, Notes: ${userProfile?.about || 'None'}.`;
       fullMessages = [
         { role: 'system', content: `${studentInfo}\n\n${SYSTEM_PROMPT}` },
@@ -80,7 +78,7 @@ export default async function handler(req, res) {
         payload.top_p = 0.95;
     }
 
-    // 3. 發送請求 (偽裝成瀏覽器以通過 WAF)
+    // 3. 發送請求
     const response = await fetch(baseURL, {
       method: 'POST',
       headers: {
@@ -102,7 +100,11 @@ export default async function handler(req, res) {
     }
 
     const data = await response.json();
-    const aiContent = data.choices?.[0]?.message?.content || "No content.";
+    let aiContent = data.choices?.[0]?.message?.content || "No content.";
+
+    // --- 關鍵修正：過濾 <think> 標籤 ---
+    // 這會移除 Qwen/DeepSeek/Gemini 的思考過程，只保留最終答案
+    aiContent = aiContent.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
 
     res.status(200).json({ status: 'success', content: aiContent });
 
