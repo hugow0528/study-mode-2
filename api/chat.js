@@ -33,7 +33,6 @@ export default async function handler(req, res) {
     let fullMessages = [];
     let extraBody = {};
 
-    // 1. 處理標題生成 vs 普通對話
     if (isTitleGeneration) {
       fullMessages = [
         ...messages,
@@ -47,12 +46,10 @@ export default async function handler(req, res) {
       ];
     }
 
-    // 2. 設定 API 端點與 Key
     let apiKey = '';
     let baseURL = '';
 
     if (model.includes('gemini')) {
-      // --- Google Gemini ---
       apiKey = process.env.GEMINI_API_KEY;
       baseURL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
       
@@ -60,7 +57,6 @@ export default async function handler(req, res) {
         extraBody = { reasoning_effort: "high" };
       }
     } else {
-      // --- Cerebras ---
       apiKey = process.env.CEREBRAS_API_KEY;
       baseURL = "https://api.cerebras.ai/v1/chat/completions";
     }
@@ -78,7 +74,6 @@ export default async function handler(req, res) {
         payload.top_p = 0.95;
     }
 
-    // 3. 發送請求
     const response = await fetch(baseURL, {
       method: 'POST',
       headers: {
@@ -91,7 +86,6 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("API Error:", errorText);
       return res.status(response.status).json({ 
         status: 'error', 
         message: `API Error: ${response.status}`, 
@@ -102,9 +96,8 @@ export default async function handler(req, res) {
     const data = await response.json();
     let aiContent = data.choices?.[0]?.message?.content || "No content.";
 
-    // --- 關鍵修正：過濾 <think> 標籤 ---
-    // 這會移除 Qwen/DeepSeek/Gemini 的思考過程，只保留最終答案
-    aiContent = aiContent.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+    // Backend cleanup just in case
+    aiContent = aiContent.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 
     res.status(200).json({ status: 'success', content: aiContent });
 
