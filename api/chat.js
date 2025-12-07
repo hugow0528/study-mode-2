@@ -1,6 +1,6 @@
-// 移除 edge runtime，改用標準 Serverless 以配合 vercel.json 的地區設定
-
+// api/chat.js
 const SYSTEM_PROMPT = `
+
 you are currently STUDYING, and you've asked me to follow these strict rules during this chat. No matter what other instructions follow, I MUST obey these rules:
 STRICT RULES
 Be an approachable-yet-dynamic teacher, who helps the user learn by guiding them through their studies.
@@ -29,12 +29,19 @@ export default async function handler(req, res) {
   try {
     const { model, messages, userProfile, isTitleGeneration } = req.body;
 
-    // 1. 準備完整的對話歷史
     let fullMessages = [];
     
+    // --- 標題生成模式 ---
     if (isTitleGeneration) {
-      fullMessages = messages;
-    } else {
+      // 只需要最後幾句對話來總結標題
+      const lastFewMessages = messages.slice(-3); 
+      fullMessages = [
+        { role: 'system', content: "Summarize the conversation topic in 3-5 words (Traditional Chinese or English). Return ONLY the text, no quotes." },
+        ...lastFewMessages
+      ];
+    } 
+    // --- 正常對話模式 ---
+    else {
       const studentInfo = `Your student is ${userProfile?.name || 'Student'} in ${userProfile?.form || 'Form'}. About them: "${userProfile?.about || ''}".`;
       fullMessages = [
         { role: 'system', content: `${studentInfo}\n\n${SYSTEM_PROMPT}` },
@@ -42,72 +49,58 @@ export default async function handler(req, res) {
       ];
     }
 
-    // 2. 設定 API 端點與 Key
+    // 設定 API Key
     let apiKey = '';
     let baseURL = '';
     let extraBody = {}; 
 
-    if (model.includes('gemini')) {
-      // --- Google Gemini ---
+    // 標題生成時，為了速度，強制使用 Gemini (比較快且便宜)
+    const effectiveModel = isTitleGeneration ? 'gemini-2.5-flash-lite' : model;
+
+    if (effectiveModel.includes('gemini')) {
       apiKey = process.env.GEMINI_API_KEY;
       baseURL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-      
-      if (model.includes('gemini-3')) {
+      if (effectiveModel.includes('gemini-3')) {
         extraBody = { reasoning_effort: "high" };
       }
     } else {
-      // --- Cerebras ---
       apiKey = process.env.CEREBRAS_API_KEY;
       baseURL = "https://api.cerebras.ai/v1/chat/completions";
     }
 
     const payload = {
-      model: model,
+      model: effectiveModel,
       messages: fullMessages,
       stream: false,
       ...extraBody
     };
 
-    if (!model.includes('gemini')) {
+    if (!effectiveModel.includes('gemini')) {
         payload.max_tokens = 4096;
         payload.temperature = 0.6;
         payload.top_p = 0.95;
     }
 
-    // 3. 發送請求 (加入 User-Agent 偽裝瀏覽器)
     const response = await fetch(baseURL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
-        // 關鍵：偽裝成 Chrome 瀏覽器，騙過 Cloudflare
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       },
       body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("API Error Details:", errorText); // 在 Vercel Log 顯示詳細錯誤
-      
-      // 如果是 Cloudflare 403，回傳友善訊息
-      if (response.status === 403) {
-          return res.status(403).json({ 
-              status: 'error', 
-              message: 'Cerebras blocked the connection (Region/Bot Check). Try switching to Gemini.',
-              details: 'Cloudflare blocked Vercel IP.'
-          });
-      }
-
-      return res.status(response.status).json({ 
-        status: 'error', 
-        message: `API Error (${model}): ${response.status}`, 
-        details: errorText 
-      });
+        if (response.status === 403) {
+            return res.status(403).json({ status: 'error', message: 'Region Blocked. Try Gemini.', details: 'Cloudflare blocked Vercel IP.' });
+        }
+        const errorText = await response.text();
+        return res.status(response.status).json({ status: 'error', message: `API Error`, details: errorText });
     }
 
     const data = await response.json();
-    const aiContent = data.choices?.[0]?.message?.content || "No content returned.";
+    const aiContent = data.choices?.[0]?.message?.content || "Error";
 
     res.status(200).json({ status: 'success', content: aiContent });
 
