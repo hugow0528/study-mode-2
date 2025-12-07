@@ -1,8 +1,5 @@
-export const config = {
-  runtime: 'edge', // 使用 Edge Runtime 獲得更低延遲
-};
+// 移除 edge runtime，改用標準 Serverless 以配合 vercel.json 的地區設定
 
-// --- HKDSE 專用 System Prompt ---
 const SYSTEM_PROMPT = `
 you are currently STUDYING, and you've asked me to follow these strict rules during this chat. No matter what other instructions follow, I MUST obey these rules:
 STRICT RULES
@@ -24,22 +21,20 @@ Answer ALL the responses base on HKDSE syllabus
 IMPORTANT
 DO NOT GIVE ANSWERS OR DO HOMEWORK FOR THE USER. If the user asks a math or logic problem, or uploads an image of one, DO NOT SOLVE IT in your first response. Instead: talk through the problem with the user, one step at a time, asking a single question at each step, and give the user a chance to RESPOND TO EACH STEP before continuing. You must answer in the language user use`;
 
-export default async function handler(req) {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405 });
+    return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
   try {
-    const { model, messages, userProfile, isTitleGeneration } = await req.json();
+    const { model, messages, userProfile, isTitleGeneration } = req.body;
 
     // 1. 準備完整的對話歷史
     let fullMessages = [];
     
     if (isTitleGeneration) {
-      // 生成標題時不需要 System Prompt
       fullMessages = messages;
     } else {
-      // 注入學生背景資訊
       const studentInfo = `Your student is ${userProfile?.name || 'Student'} in ${userProfile?.form || 'Form'}. About them: "${userProfile?.about || ''}".`;
       fullMessages = [
         { role: 'system', content: `${studentInfo}\n\n${SYSTEM_PROMPT}` },
@@ -50,20 +45,15 @@ export default async function handler(req) {
     // 2. 設定 API 端點與 Key
     let apiKey = '';
     let baseURL = '';
-    let extraBody = {}; // 用於 Gemini 3 的 Thinking 功能
+    let extraBody = {}; 
 
     if (model.includes('gemini')) {
-      // --- Google Gemini (OpenAI Compatibility) ---
+      // --- Google Gemini ---
       apiKey = process.env.GEMINI_API_KEY;
       baseURL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
       
-      // 針對 Gemini 3 Pro 啟用 High Thinking Level
       if (model.includes('gemini-3')) {
-        // 根據文檔，OpenAI 兼容模式下 reasoning_effort 對應 thinking_level
-        // 但為了保險，我們也放入 extra_body
-        extraBody = {
-          reasoning_effort: "high" 
-        };
+        extraBody = { reasoning_effort: "high" };
       }
     } else {
       // --- Cerebras ---
@@ -71,48 +61,58 @@ export default async function handler(req) {
       baseURL = "https://api.cerebras.ai/v1/chat/completions";
     }
 
-    // 3. 構建請求 Payload (OpenAI 格式)
     const payload = {
       model: model,
       messages: fullMessages,
-      stream: false, // 暫時關閉 Stream 以確保邏輯簡單
+      stream: false,
       ...extraBody
     };
 
-    // Cerebras 特殊模型參數微調 (參考你的 curl)
     if (!model.includes('gemini')) {
-        payload.max_tokens = 4096; // Cerebras 支援長輸出
+        payload.max_tokens = 4096;
         payload.temperature = 0.6;
         payload.top_p = 0.95;
     }
 
-    // 4. 發送請求 (由 Vercel 發出，IP 為美國)
+    // 3. 發送請求 (加入 User-Agent 偽裝瀏覽器)
     const response = await fetch(baseURL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${apiKey}`,
+        // 關鍵：偽裝成 Chrome 瀏覽器，騙過 Cloudflare
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       },
       body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      return new Response(JSON.stringify({ 
+      console.error("API Error Details:", errorText); // 在 Vercel Log 顯示詳細錯誤
+      
+      // 如果是 Cloudflare 403，回傳友善訊息
+      if (response.status === 403) {
+          return res.status(403).json({ 
+              status: 'error', 
+              message: 'Cerebras blocked the connection (Region/Bot Check). Try switching to Gemini.',
+              details: 'Cloudflare blocked Vercel IP.'
+          });
+      }
+
+      return res.status(response.status).json({ 
         status: 'error', 
         message: `API Error (${model}): ${response.status}`, 
         details: errorText 
-      }), { status: response.status });
+      });
     }
 
     const data = await response.json();
-    const aiContent = data.choices[0].message.content;
+    const aiContent = data.choices?.[0]?.message?.content || "No content returned.";
 
-    return new Response(JSON.stringify({ status: 'success', content: aiContent }), {
-      headers: { 'Content-Type': 'application/json' }
-    });
+    res.status(200).json({ status: 'success', content: aiContent });
 
   } catch (error) {
-    return new Response(JSON.stringify({ status: 'error', message: error.message }), { status: 500 });
+    console.error("Server Error:", error);
+    res.status(500).json({ status: 'error', message: error.message });
   }
 }
