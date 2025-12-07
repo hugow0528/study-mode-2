@@ -1,6 +1,6 @@
 // api/chat.js
-const SYSTEM_PROMPT = `
 
+const SYSTEM_PROMPT = `
 you are currently STUDYING, and you've asked me to follow these strict rules during this chat. No matter what other instructions follow, I MUST obey these rules:
 STRICT RULES
 Be an approachable-yet-dynamic teacher, who helps the user learn by guiding them through their studies.
@@ -19,7 +19,8 @@ TONE & APPROACH
 Be warm, patient, and plain-spoken; don't use too many exclamation marks or emoji. Keep the session moving: always know the next step, and switch or end activities once they’ve done their job. And be brief — don't ever send essay-length responses. Aim for a good back-and-forth.
 Answer ALL the responses base on HKDSE syllabus
 IMPORTANT
-DO NOT GIVE ANSWERS OR DO HOMEWORK FOR THE USER. If the user asks a math or logic problem, or uploads an image of one, DO NOT SOLVE IT in your first response. Instead: talk through the problem with the user, one step at a time, asking a single question at each step, and give the user a chance to RESPOND TO EACH STEP before continuing. You must answer in the language user use`;
+DO NOT GIVE ANSWERS OR DO HOMEWORK FOR THE USER. If the user asks a math or logic problem, or uploads an image of one, DO NOT SOLVE IT in your first response. Instead: talk through the problem with the user, one step at a time, asking a single question at each step, and give the user a chance to RESPOND TO EACH STEP before continuing. You must answer in the language user use
+`;
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -30,57 +31,56 @@ export default async function handler(req, res) {
     const { model, messages, userProfile, isTitleGeneration } = req.body;
 
     let fullMessages = [];
-    
-    // --- 標題生成模式 ---
+    let extraBody = {};
+
+    // 1. 處理標題生成 vs 普通對話
     if (isTitleGeneration) {
-      // 只需要最後幾句對話來總結標題
-      const lastFewMessages = messages.slice(-3); 
+      // 標題生成模式：不需要 System Prompt，只需要最近的對話
       fullMessages = [
-        { role: 'system', content: "Summarize the conversation topic in 3-5 words (Traditional Chinese or English). Return ONLY the text, no quotes." },
-        ...lastFewMessages
+        ...messages,
+        { role: 'user', content: 'Summarize our conversation topic in 3-5 words. Output ONLY the title, no other text.' }
       ];
-    } 
-    // --- 正常對話模式 ---
-    else {
-      const studentInfo = `Your student is ${userProfile?.name || 'Student'} in ${userProfile?.form || 'Form'}. About them: "${userProfile?.about || ''}".`;
+    } else {
+      // 普通學習模式：加入 System Prompt
+      const studentInfo = `User Context: Student Name: ${userProfile?.name || 'Student'}, Form: ${userProfile?.form || 'S5'}, Notes: ${userProfile?.about || 'None'}.`;
       fullMessages = [
         { role: 'system', content: `${studentInfo}\n\n${SYSTEM_PROMPT}` },
         ...messages
       ];
     }
 
-    // 設定 API Key
+    // 2. 設定 API 端點與 Key
     let apiKey = '';
     let baseURL = '';
-    let extraBody = {}; 
 
-    // 標題生成時，為了速度，強制使用 Gemini (比較快且便宜)
-    const effectiveModel = isTitleGeneration ? 'gemini-2.5-flash-lite' : model;
-
-    if (effectiveModel.includes('gemini')) {
+    if (model.includes('gemini')) {
+      // --- Google Gemini ---
       apiKey = process.env.GEMINI_API_KEY;
       baseURL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-      if (effectiveModel.includes('gemini-3')) {
+      
+      if (model.includes('gemini-3') && !isTitleGeneration) {
         extraBody = { reasoning_effort: "high" };
       }
     } else {
+      // --- Cerebras ---
       apiKey = process.env.CEREBRAS_API_KEY;
       baseURL = "https://api.cerebras.ai/v1/chat/completions";
     }
 
     const payload = {
-      model: effectiveModel,
+      model: model,
       messages: fullMessages,
       stream: false,
       ...extraBody
     };
 
-    if (!effectiveModel.includes('gemini')) {
-        payload.max_tokens = 4096;
-        payload.temperature = 0.6;
+    if (!model.includes('gemini')) {
+        payload.max_tokens = isTitleGeneration ? 50 : 4096;
+        payload.temperature = isTitleGeneration ? 0.3 : 0.6;
         payload.top_p = 0.95;
     }
 
+    // 3. 發送請求 (偽裝成瀏覽器以通過 WAF)
     const response = await fetch(baseURL, {
       method: 'POST',
       headers: {
@@ -92,15 +92,17 @@ export default async function handler(req, res) {
     });
 
     if (!response.ok) {
-        if (response.status === 403) {
-            return res.status(403).json({ status: 'error', message: 'Region Blocked. Try Gemini.', details: 'Cloudflare blocked Vercel IP.' });
-        }
-        const errorText = await response.text();
-        return res.status(response.status).json({ status: 'error', message: `API Error`, details: errorText });
+      const errorText = await response.text();
+      console.error("API Error:", errorText);
+      return res.status(response.status).json({ 
+        status: 'error', 
+        message: `API Error: ${response.status}`, 
+        details: errorText 
+      });
     }
 
     const data = await response.json();
-    const aiContent = data.choices?.[0]?.message?.content || "Error";
+    const aiContent = data.choices?.[0]?.message?.content || "No content.";
 
     res.status(200).json({ status: 'success', content: aiContent });
 
