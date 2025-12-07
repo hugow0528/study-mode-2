@@ -3,254 +3,349 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Study Guide | HKDSE</title>
+    <title>Study Mode | HKDSE</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@300;400;500;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
 
     <style>
         :root {
-            /* Dark Mode (Default) */
+            /* Light Mode (Wabi-sabi: Paper, Ink, Clay) */
+            --bg-main: #F4F1EA;
+            --bg-sidebar: #EBE7E0;
+            --bg-card: #FFFFFF;
+            --text-primary: #3A3633;
+            --text-secondary: #8C8680;
+            --accent: #6B705C; /* Matcha Green */
+            --accent-hover: #585C4B;
+            --border: #D8D4CD;
+            --msg-user-bg: #E3E0D9;
+            --msg-ai-bg: #FFFFFF;
+            --shadow: rgba(0,0,0,0.05);
+            --radius: 16px;
+        }
+
+        [data-theme="dark"] {
+            /* Dark Mode (Wabi-sabi: Charcoal, Stone, Night) */
             --bg-main: #1C1C1E;
             --bg-sidebar: #151517;
             --bg-card: #2C2C2E;
             --text-primary: #E5E5E7;
             --text-secondary: #8E8E93;
-            --accent: #0A84FF;
+            --accent: #5E6A75; /* Slate Blue/Grey */
+            --accent-hover: #4A5560;
             --border: #38383A;
-            --msg-user: #0A84FF;
-            --msg-ai: #2C2C2E;
+            --msg-user-bg: #3A3A3C;
+            --msg-ai-bg: #2C2C2E;
+            --shadow: rgba(0,0,0,0.2);
         }
 
-        /* Light Mode (Wabi-sabi / Natural) */
-        [data-theme="light"] {
-            --bg-main: #F2F1F6;
-            --bg-sidebar: #FFFFFF;
-            --bg-card: #FFFFFF;
-            --text-primary: #1C1C1E;
-            --text-secondary: #8E8E93;
-            --accent: #007AFF;
-            --border: #E5E5EA;
-            --msg-user: #007AFF;
-            --msg-ai: #FFFFFF;
-        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; transition: background 0.3s ease, color 0.3s ease; }
+        body { margin: 0; font-family: 'Noto Sans HK', sans-serif; background: var(--bg-main); color: var(--text-primary); height: 100dvh; display: flex; overflow: hidden; }
+        
+        /* Layout */
+        #sidebar { width: 280px; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 100; flex-shrink: 0; }
+        #main { flex: 1; display: flex; flex-direction: column; position: relative; width: 100%; min-width: 0; }
+        
+        /* Sidebar Components */
+        .sidebar-header { padding: 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .new-chat-btn { width: 100%; padding: 12px; background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius); font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 2px 4px var(--shadow); }
+        .new-chat-btn:hover { border-color: var(--accent); color: var(--accent); }
 
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { margin: 0; font-family: 'Noto Sans HK', sans-serif; background: var(--bg-main); color: var(--text-primary); height: 100dvh; display: flex; overflow: hidden; transition: background 0.3s; }
-        
-        /* Sidebar */
-        #sidebar { width: 280px; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; transition: transform 0.3s ease, background 0.3s; z-index: 100; flex-shrink: 0; }
-        .sidebar-header { padding: 20px; border-bottom: 1px solid var(--border); }
-        .new-chat-btn { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        
         #history-list { list-style: none; padding: 10px; margin: 0; overflow-y: auto; flex: 1; }
-        .history-item { padding: 12px; margin-bottom: 4px; border-radius: 8px; cursor: pointer; color: var(--text-secondary); display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; transition: background 0.2s; }
-        .history-item:hover, .history-item.active { background: var(--bg-card); color: var(--text-primary); }
-        .history-item.active { font-weight: 500; border-left: 3px solid var(--accent); }
-        
-        .history-title { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding-right: 10px; }
-        .history-input { background: var(--bg-main); border: 1px solid var(--accent); color: var(--text-primary); width: 100%; padding: 4px; border-radius: 4px; font-size: 0.9rem; }
-        .item-actions { display: none; gap: 5px; }
-        .history-item:hover .item-actions, .history-item.active .item-actions { display: flex; }
-        .icon-btn { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 2px; }
-        .icon-btn:hover { color: var(--text-primary); }
+        .history-item { padding: 12px; margin-bottom: 4px; border-radius: 8px; cursor: pointer; color: var(--text-secondary); font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; group; }
+        .history-item:hover, .history-item.active { background: rgba(0,0,0,0.03); color: var(--text-primary); font-weight: 500; }
+        [data-theme="dark"] .history-item:hover { background: rgba(255,255,255,0.05); }
+        .history-item .actions { display: none; gap: 4px; }
+        .history-item:hover .actions { display: flex; }
+        .icon-btn { background: none; border: none; cursor: pointer; color: var(--text-secondary); padding: 4px; border-radius: 4px; }
+        .icon-btn:hover { color: var(--text-primary); background: rgba(0,0,0,0.05); }
 
         .sidebar-footer { padding: 15px; border-top: 1px solid var(--border); display: flex; gap: 10px; align-items: center; cursor: pointer; }
+        .avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); }
         
-        /* Main Chat */
-        #main { flex: 1; display: flex; flex-direction: column; position: relative; width: 100%; }
-        
-        .top-bar { padding: 15px 20px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); background: var(--bg-main); z-index: 10; justify-content: space-between; }
+        /* Main Chat Area */
+        .top-bar { padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); background: var(--bg-main); z-index: 10; }
         .model-selector { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; outline: none; }
-        .theme-btn { background: none; border: none; cursor: pointer; font-size: 1.2rem; }
-
+        
         #chat-container { flex: 1; overflow-y: auto; padding: 20px; padding-bottom: 120px; scroll-behavior: smooth; }
         
-        .message-row { display: flex; margin-bottom: 24px; gap: 12px; animation: fadeIn 0.3s ease; width: 100%; }
+        .message-row { display: flex; margin-bottom: 24px; animation: fadeIn 0.3s ease; gap: 12px; max-width: 900px; margin-left: auto; margin-right: auto; }
         .message-row.user { flex-direction: row-reverse; }
+        .message-avatar { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; object-fit: cover; }
         
-        .avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--bg-card); border: 1px solid var(--border); }
-        
-        .message-content-wrapper { max-width: 80%; display: flex; flex-direction: column; gap: 4px; }
-        .user .message-content-wrapper { align-items: flex-end; }
-        
-        .message-bubble { padding: 12px 18px; border-radius: 18px; line-height: 1.6; font-size: 1rem; position: relative; word-wrap: break-word; }
-        .user .message-bubble { background: var(--msg-user); color: white; border-bottom-right-radius: 4px; }
-        .ai .message-bubble { background: var(--msg-ai); color: var(--text-primary); border-bottom-left-radius: 4px; border: 1px solid var(--border); }
+        .message-content-wrapper { display: flex; flex-direction: column; max-width: 80%; }
+        .message-row.user .message-content-wrapper { align-items: flex-end; }
 
-        /* Edit Button */
-        .edit-msg-btn { font-size: 0.75rem; color: var(--text-secondary); background: none; border: none; cursor: pointer; opacity: 0; transition: opacity 0.2s; align-self: flex-end; }
-        .message-row:hover .edit-msg-btn { opacity: 1; }
-        .user .edit-msg-btn { align-self: flex-start; }
-
-        /* Markdown */
-        .message-bubble code { font-family: 'JetBrains Mono', monospace; font-size: 0.9em; background: rgba(0,0,0,0.2); padding: 2px 4px; border-radius: 4px; }
-        [data-theme="light"] .message-bubble code { background: rgba(0,0,0,0.05); }
-        .message-bubble pre { background: #111; padding: 15px; border-radius: 10px; overflow-x: auto; margin: 10px 0; color: #ddd; }
+        .message-bubble { padding: 14px 18px; border-radius: var(--radius); line-height: 1.6; font-size: 1rem; word-wrap: break-word; position: relative; box-shadow: 0 1px 2px var(--shadow); }
+        .user .message-bubble { background: var(--msg-user-bg); color: var(--text-primary); border-bottom-right-radius: 4px; }
+        .ai .message-bubble { background: var(--msg-ai-bg); color: var(--text-primary); border-bottom-left-radius: 4px; }
         
+        .message-actions { display: flex; gap: 8px; margin-top: 4px; opacity: 0; transition: opacity 0.2s; font-size: 0.8rem; }
+        .message-row:hover .message-actions { opacity: 1; }
+        .action-link { cursor: pointer; color: var(--text-secondary); text-decoration: underline; }
+        .action-link:hover { color: var(--accent); }
+
+        /* Markdown & Code */
+        .message-bubble code { font-family: 'JetBrains Mono', monospace; font-size: 0.9em; background: rgba(0,0,0,0.06); padding: 2px 5px; border-radius: 4px; }
+        [data-theme="dark"] .message-bubble code { background: rgba(255,255,255,0.1); }
+        .message-bubble pre { background: #222; color: #eee; padding: 15px; border-radius: 8px; overflow-x: auto; margin: 10px 0; }
+
         /* Input Area */
-        .input-area { position: absolute; bottom: 0; left: 0; right: 0; padding: 20px; background: linear-gradient(to top, var(--bg-main) 90%, transparent); display: flex; justify-content: center; }
-        .input-wrapper { width: 100%; max-width: 800px; background: var(--bg-card); border-radius: 24px; padding: 10px 16px; display: flex; align-items: flex-end; gap: 10px; border: 1px solid var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-        textarea { flex: 1; background: transparent; border: none; color: var(--text-primary); resize: none; max-height: 150px; padding: 10px 0; font-size: 1rem; outline: none; line-height: 1.5; }
-        .send-btn { background: var(--accent); color: white; border: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+        .input-area { position: absolute; bottom: 0; left: 0; right: 0; padding: 20px; background: linear-gradient(to top, var(--bg-main) 85%, transparent); display: flex; justify-content: center; }
+        .input-wrapper { width: 100%; max-width: 800px; background: var(--bg-card); border-radius: 24px; padding: 8px 16px; display: flex; align-items: flex-end; gap: 10px; border: 1px solid var(--border); box-shadow: 0 4px 12px var(--shadow); transition: border-color 0.2s; }
+        .input-wrapper:focus-within { border-color: var(--accent); }
+        
+        textarea { flex: 1; background: transparent; border: none; color: var(--text-primary); resize: none; max-height: 150px; padding: 12px 0; font-size: 1rem; font-family: inherit; outline: none; line-height: 1.5; }
+        
+        .send-btn { background: var(--accent); color: white; border: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; margin-bottom: 6px; transition: transform 0.1s; }
+        .send-btn:active { transform: scale(0.95); }
         .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        /* Modal */
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: 0.3s; z-index: 2000; }
+        /* Modals */
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: 0.3s; z-index: 1000; backdrop-filter: blur(4px); }
         .modal.active { opacity: 1; pointer-events: all; }
-        .modal-content { background: var(--bg-sidebar); padding: 30px; border-radius: 20px; width: 90%; max-width: 400px; border: 1px solid var(--border); color: var(--text-primary); }
-        .form-group { margin-bottom: 15px; }
+        .modal-content { background: var(--bg-card); padding: 30px; border-radius: 24px; width: 90%; max-width: 420px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .modal h2 { margin-top: 0; color: var(--accent); font-weight: 500; }
+        .form-group { margin-bottom: 16px; }
         .form-group label { display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 0.9rem; }
-        .form-group input, .form-group textarea, .form-group select { width: 100%; background: var(--bg-main); border: 1px solid var(--border); color: var(--text-primary); padding: 10px; border-radius: 8px; }
-        .save-btn { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        
-        .avatar-preview { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 0 auto 10px; display: block; border: 2px solid var(--border); }
-        .file-upload { display: block; margin: 0 auto; width: 100%; text-align: center; }
+        .form-group input, .form-group textarea, .form-group select { width: 100%; background: var(--bg-main); border: 1px solid var(--border); color: var(--text-primary); padding: 12px; border-radius: 12px; font-family: inherit; outline: none; }
+        .form-group input:focus { border-color: var(--accent); }
+        .primary-btn { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; margin-top: 10px; }
+        .close-btn { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary); }
 
+        /* Responsive */
+        .menu-btn { display: none; background: none; border: none; color: var(--text-primary); font-size: 1.5rem; cursor: pointer; }
         @media (max-width: 768px) {
-            #sidebar { position: fixed; left: -280px; height: 100%; }
+            #sidebar { position: fixed; left: -280px; height: 100%; box-shadow: 10px 0 30px rgba(0,0,0,0.2); }
             #sidebar.open { transform: translateX(280px); }
             .menu-btn { display: block; }
+            .message-bubble { max-width: 95%; }
+            .message-row { padding: 0 10px; }
         }
     </style>
 </head>
-<body data-theme="dark">
+<body data-theme="light">
 
+    <!-- Sidebar -->
     <aside id="sidebar">
         <div class="sidebar-header">
-            <button class="new-chat-btn" onclick="createNewChat()">+ New Chat</button>
+            <h2 style="margin:0; font-size:1.1rem; color:var(--accent); letter-spacing:1px;">STUDY MODE</h2>
+            <button class="icon-btn" onclick="toggleTheme()" title="Toggle Theme">
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-4.97-4.03-9-9-9zM12 19c-3.86 0-7-3.14-7-7s3.14-7 7-7 7 3.14 7 7-3.14 7-7 7z"/></svg>
+            </button>
         </div>
-        <ul id="history-list"></ul>
+        <div style="padding: 10px 10px 0 10px;">
+            <button class="new-chat-btn" onclick="createNewChat()">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg>
+                New Topic
+            </button>
+        </div>
+        <ul id="history-list">
+            <!-- Chat history generated by JS -->
+        </ul>
         <div class="sidebar-footer" onclick="openProfile()">
-            <img src="" id="sidebar-avatar" class="avatar">
-            <div style="flex:1; overflow:hidden;">
-                <div id="profile-name" style="font-weight:600; font-size:0.95rem;">Student</div>
+            <img src="" id="profile-img-sidebar" class="avatar" alt="User">
+            <div style="flex:1; overflow:hidden; padding-left: 5px;">
+                <div id="profile-name-sidebar" style="font-weight:600; font-size:0.95rem;">Student</div>
+                <div id="profile-form-sidebar" style="font-size:0.8rem; color:var(--text-secondary);">S5</div>
             </div>
-            <span style="color:var(--text-secondary)">⚙️</span>
+            <svg width="20" height="20" fill="var(--text-secondary)" viewBox="0 0 20 20"><path d="M10 8.33c.92 0 1.67.75 1.67 1.67s-.75 1.67-1.67 1.67S8.33 10.92 8.33 10 9.08 8.33 10 8.33zM18.34 11.1v-2.2l-2.06-.59a6.03 6.03 0 00-.73-1.35l.93-1.92-1.55-1.55-.1.1-1.82.98a6.01 6.01 0 00-1.35-.73L11.1 1.66h-2.2l-.59 2.06a6.03 6.03 0 00-1.35.73l-1.92-.93-1.55 1.55.98 1.82c-.27.42-.46.88-.73 1.35L1.66 8.9v2.2l2.06.59c.27.47.46.93.73 1.35l-.93 1.92 1.55 1.55.1-.1 1.82-.98c.42.27.88.46 1.35.73l.59 2.06h2.2l-.59-2.06c.47-.27.93-.46 1.35-.73l1.92.93 1.55-1.55-.98-1.82c.27-.42.46-.88.73-1.35l2.06-.59zM10 13.33a3.33 3.33 0 110-6.66 3.33 3.33 0 010 6.66z"/></svg>
         </div>
     </aside>
 
+    <!-- Main Content -->
     <main id="main">
         <div class="top-bar">
-            <button class="menu-btn" onclick="toggleSidebar()" style="background:none;border:none;color:var(--text-primary);font-size:1.5rem;display:none;">☰</button>
-            <div style="font-weight:600;">STUDY MODE</div>
-            <div style="display:flex; gap:10px;">
-                <button class="theme-btn" onclick="toggleTheme()" id="theme-icon">☀️</button>
-                <select id="model-select" class="model-selector">
-                    <optgroup label="Google">
-                        <option value="gemini-3-pro-preview">Gemini 3 Pro</option>
-                        <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                    </optgroup>
-                    <optgroup label="Cerebras">
-                        <option value="llama-3.3-70b">Llama 3.3 70B</option>
-                        <option value="qwen-3-32b">Qwen 3 32B</option>
-                    </optgroup>
-                </select>
-            </div>
+            <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+            <select id="model-select" class="model-selector">
+                <optgroup label="Google (Reasoning)">
+                    <option value="gemini-3-pro-preview">✨ Gemini 3 Pro</option>
+                    <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                </optgroup>
+                <optgroup label="Cerebras (Speed)">
+                    <option value="llama-3.3-70b">Llama 3.3 70B</option>
+                    <option value="llama3.1-8b">Llama 3.1 8B</option>
+                    <option value="gpt-oss-120b">GPT OSS 120B</option>
+                    <option value="qwen-3-32b">Qwen 3 32B</option>
+                    <option value="zai-glm-4.6">Z.ai GLM 4.6</option>
+                </optgroup>
+            </select>
+            <div style="width:24px;"></div> <!-- Spacer -->
         </div>
 
-        <div id="chat-container"></div>
+        <div id="chat-container">
+            <!-- Messages will be injected here -->
+        </div>
 
         <div class="input-area">
             <div class="input-wrapper">
                 <textarea id="user-input" placeholder="Type a message..." rows="1"></textarea>
-                <button id="send-btn" class="send-btn" onclick="sendMessage()">➤</button>
+                <button id="send-btn" class="send-btn" onclick="sendMessage()">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"></path></svg>
+                </button>
             </div>
         </div>
     </main>
 
     <!-- Profile Modal -->
     <div id="profile-modal" class="modal">
-        <div class="modal-content">
-            <h2 style="text-align:center; margin-top:0;">Profile</h2>
-            <img id="modal-avatar-preview" class="avatar-preview" src="">
-            <div class="form-group">
-                <input type="file" id="avatar-upload" class="file-upload" accept="image/*">
+        <div class="modal-content" style="position:relative;">
+            <button class="close-btn" onclick="closeProfile()">×</button>
+            <h2>My Profile</h2>
+            <div style="text-align:center; margin-bottom:20px;">
+                <img id="p-preview" class="avatar" style="width:80px; height:80px;" src="" alt="Preview">
+                <br>
+                <input type="file" id="p-upload" accept="image/*" style="display:none;" onchange="handleImageUpload(this)">
+                <button onclick="document.getElementById('p-upload').click()" style="margin-top:10px; background:transparent; border:1px solid var(--accent); color:var(--accent); padding:5px 10px; border-radius:8px; cursor:pointer;">Change Photo</button>
             </div>
-            <div class="form-group"><label>Name</label><input type="text" id="p-name"></div>
-            <div class="form-group"><label>Form</label><select id="p-form"><option>S4</option><option>S5</option><option>S6</option></select></div>
-            <div class="form-group"><label>About Me</label><textarea id="p-about" rows="2"></textarea></div>
-            <button class="save-btn" onclick="saveProfile()">Save</button>
+            <div class="form-group">
+                <label>Display Name</label>
+                <input type="text" id="p-name">
+            </div>
+            <div class="form-group">
+                <label>Form</label>
+                <select id="p-form">
+                    <option>S1</option><option>S2</option><option>S3</option>
+                    <option>S4</option><option>S5</option><option>S6</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Goals / Weaknesses</label>
+                <textarea id="p-about" rows="3" placeholder="e.g. Weak in Probability, Aiming for 5* in Chem"></textarea>
+            </div>
+            <button class="primary-btn" onclick="saveProfile()">Save Changes</button>
         </div>
     </div>
 
     <script>
-        // Constants & State
+        // --- Constants & State ---
         const AI_AVATAR = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238899a6'%3E%3Cpath d='M12 2a10 10 0 00-9.95 9.1c-.04.55.39 1 .95.95A10 10 0 0012 22a10 10 0 0010-10c0-5.52-4.48-10-10-10zm0 18a8 8 0 110-16 8 8 0 010 16zm-2-8a2 2 0 100-4 2 2 0 000 4zm4 0a2 2 0 100-4 2 2 0 000 4z'/%3E%3C/svg%3E";
-        const DEFAULT_USER_AVATAR = "https://api.dicebear.com/7.x/initials/svg?seed=Student";
+        const DEFAULT_USER_IMG = "https://api.dicebear.com/7.x/initials/svg?seed=Student";
         
-        let chatHistories = JSON.parse(localStorage.getItem('hkdse_chats')) || {};
+        let chatHistories = JSON.parse(localStorage.getItem('hkdse_chats_v3')) || {};
         let activeChatId = null;
-        let userProfile = JSON.parse(localStorage.getItem('hkdse_profile')) || { name: 'Student', form: 'S5', about: '', avatar: '' };
-        let theme = localStorage.getItem('hkdse_theme') || 'dark';
+        let userProfile = JSON.parse(localStorage.getItem('hkdse_profile_v3')) || { name: 'Student', form: 'S5', about: '', avatar: DEFAULT_USER_IMG };
+        let theme = localStorage.getItem('hkdse_theme') || 'light';
 
-        // Elements
+        // --- DOM Elements ---
         const chatContainer = document.getElementById('chat-container');
         const userInput = document.getElementById('user-input');
         const sendBtn = document.getElementById('send-btn');
+        const historyList = document.getElementById('history-list');
         const modelSelect = document.getElementById('model-select');
 
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
-            applyTheme(theme);
+            setTheme(theme);
             loadProfileUI();
-            renderHistoryList();
             
+            // Auto-resize input
             userInput.addEventListener('input', function() {
                 this.style.height = 'auto';
                 this.style.height = (this.scrollHeight) + 'px';
+                if(this.value === '') this.style.height = 'auto';
             });
+            
             userInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
             });
 
-            // Restore Chat
-            const lastId = localStorage.getItem('hkdse_active_id');
-            if(lastId && chatHistories[lastId]) loadChat(lastId);
-            else createNewChat();
+            // Restore last session or new
+            const lastId = localStorage.getItem('hkdse_active_id_v3');
+            if(lastId && chatHistories[lastId]) {
+                loadChat(lastId);
+            } else {
+                createNewChat();
+            }
+            renderHistoryList();
         });
 
         // --- Theme Logic ---
         function toggleTheme() {
-            theme = theme === 'dark' ? 'light' : 'dark';
-            localStorage.setItem('hkdse_theme', theme);
-            applyTheme(theme);
+            theme = theme === 'light' ? 'dark' : 'light';
+            setTheme(theme);
         }
-        function applyTheme(t) {
+
+        function setTheme(t) {
             document.body.setAttribute('data-theme', t);
-            document.getElementById('theme-icon').innerText = t === 'dark' ? '☀️' : '🌙';
+            localStorage.setItem('hkdse_theme', t);
+            // Update AI Avatar color based on theme is handled by CSS vars if SVG used currentColor, 
+            // but for base64 SVG we might need to swap if we want perfect color match. 
+            // For now, the provided grey SVG works on both.
         }
 
         // --- Chat Logic ---
         function createNewChat() {
             const id = Date.now().toString();
-            chatHistories[id] = { title: 'New Chat', messages: [], model: modelSelect.value };
-            loadChat(id);
+            chatHistories[id] = { title: 'New Topic', messages: [], model: modelSelect.value };
+            activeChatId = id;
+            localStorage.setItem('hkdse_active_id_v3', id);
+            saveHistory();
             renderHistoryList();
+            renderChatUI();
+            document.getElementById('sidebar').classList.remove('open');
         }
 
         function loadChat(id) {
             activeChatId = id;
-            localStorage.setItem('hkdse_active_id', id);
+            localStorage.setItem('hkdse_active_id_v3', id);
             if(chatHistories[id].model) modelSelect.value = chatHistories[id].model;
             renderChatUI();
-            // Close sidebar on mobile
             document.getElementById('sidebar').classList.remove('open');
+            renderHistoryList(); // Update active state
+        }
+
+        function renderHistoryList() {
+            historyList.innerHTML = Object.keys(chatHistories).sort().reverse().map(id => `
+                <li class="history-item ${id === activeChatId ? 'active' : ''}" onclick="loadChat('${id}')">
+                    <span id="title-${id}" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px;">${chatHistories[id].title}</span>
+                    <div class="actions">
+                        <button class="icon-btn" onclick="renameChatUI(event, '${id}')">✎</button>
+                        <button class="icon-btn" onclick="deleteChat(event, '${id}')">×</button>
+                    </div>
+                </li>
+            `).join('');
+        }
+
+        function renameChatUI(e, id) {
+            e.stopPropagation();
+            const newTitle = prompt("Rename chat:", chatHistories[id].title);
+            if(newTitle) {
+                chatHistories[id].title = newTitle;
+                saveHistory();
+                renderHistoryList();
+            }
+        }
+
+        function deleteChat(e, id) {
+            e.stopPropagation();
+            if(confirm('Delete this chat?')) {
+                delete chatHistories[id];
+                saveHistory();
+                renderHistoryList();
+                if(activeChatId === id) createNewChat();
+            }
         }
 
         function renderChatUI() {
             chatContainer.innerHTML = '';
             const messages = chatHistories[activeChatId].messages;
+            
             if (messages.length === 0) {
                 // Intro Message
                 const introDiv = document.createElement('div');
                 introDiv.className = 'message-row ai';
                 introDiv.innerHTML = `
-                    <img src="${AI_AVATAR}" class="avatar">
+                    <img src="${AI_AVATAR}" class="message-avatar">
                     <div class="message-content-wrapper">
-                        <div class="message-bubble">Hello ${userProfile.name}! 我係你嘅 Study Partner。今日溫咩？</div>
+                        <div class="message-bubble">
+                            Hello! ${userProfile.name}. 👋<br>準備好溫習邊一科未？(Model: ${modelSelect.options[modelSelect.selectedIndex].text})
+                        </div>
                     </div>`;
                 chatContainer.appendChild(introDiv);
             } else {
@@ -263,56 +358,98 @@
             const div = document.createElement('div');
             div.className = `message-row ${role === 'user' ? 'user' : 'ai'}`;
             
-            const imgSrc = role === 'user' ? (userProfile.avatar || DEFAULT_USER_AVATAR) : AI_AVATAR;
+            // Avatar
+            const img = document.createElement('img');
+            img.className = 'message-avatar';
+            img.src = role === 'user' ? userProfile.avatar : AI_AVATAR;
             
-            const bubbleContent = role === 'ai' ? DOMPurify.sanitize(marked.parse(text)) : text.replace(/\n/g, '<br>');
+            // Content Wrapper
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-content-wrapper';
+            
+            // Bubble
+            const bubble = document.createElement('div');
+            bubble.className = 'message-bubble';
+            if (role === 'ai') {
+                bubble.innerHTML = DOMPurify.sanitize(marked.parse(text));
+            } else {
+                bubble.innerText = text;
+            }
+            
+            wrapper.appendChild(bubble);
 
-            let editBtnHTML = '';
-            if (role === 'user') {
-                editBtnHTML = `<button class="edit-msg-btn" onclick="editMessage(${index})">Edit</button>`;
+            // Actions (Edit/Resend for User)
+            if(role === 'user') {
+                const actions = document.createElement('div');
+                actions.className = 'message-actions';
+                actions.innerHTML = `<span class="action-link" onclick="editMessage(${index})">Edit & Resend</span>`;
+                wrapper.appendChild(actions);
             }
 
-            div.innerHTML = `
-                <img src="${imgSrc}" class="avatar">
-                <div class="message-content-wrapper">
-                    <div class="message-bubble">${bubbleContent}</div>
-                    ${editBtnHTML}
-                </div>
-            `;
+            if(role === 'user') {
+                div.appendChild(wrapper);
+                div.appendChild(img);
+            } else {
+                div.appendChild(img);
+                div.appendChild(wrapper);
+            }
             
             chatContainer.appendChild(div);
             scrollToBottom();
         }
 
-        function scrollToBottom() { chatContainer.scrollTop = chatContainer.scrollHeight; }
+        function scrollToBottom() {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
 
-        // --- Core Messaging ---
+        // --- Messaging & Editing ---
         async function sendMessage() {
             const text = userInput.value.trim();
             if (!text) return;
 
+            // UI Optimistic Update
             userInput.value = '';
             userInput.style.height = 'auto';
-            
             const currentChat = chatHistories[activeChatId];
             const msgIndex = currentChat.messages.length;
-            
-            // 1. UI: User Message
-            currentChat.messages.push({ role: 'user', content: text });
-            currentChat.model = modelSelect.value;
             appendMessageUI('user', text, msgIndex);
             
-            // 2. UI: Loading
+            // Save state
+            currentChat.messages.push({ role: 'user', content: text });
+            currentChat.model = modelSelect.value;
+            saveHistory();
+
+            await processAIResponse(currentChat);
+        }
+
+        function editMessage(index) {
+            const currentChat = chatHistories[activeChatId];
+            const oldText = currentChat.messages[index].content;
+            
+            // Populate input
+            userInput.value = oldText;
+            userInput.focus();
+            
+            // Remove this message and everything after it
+            currentChat.messages = currentChat.messages.slice(0, index);
+            saveHistory();
+            
+            // Re-render UI to show deletion
+            renderChatUI();
+        }
+
+        async function processAIResponse(currentChat) {
+            sendBtn.disabled = true;
+            
+            // Loading indicator
             const loadingDiv = document.createElement('div');
             loadingDiv.className = 'message-row ai';
-            loadingDiv.id = 'loading-bubble';
-            loadingDiv.innerHTML = `<img src="${AI_AVATAR}" class="avatar"><div class="message-bubble">Thinking...</div>`;
+            loadingDiv.innerHTML = `<img src="${AI_AVATAR}" class="message-avatar"><div class="message-bubble" style="color:var(--text-secondary)">Thinking...</div>`;
             chatContainer.appendChild(loadingDiv);
             scrollToBottom();
-            sendBtn.disabled = true;
 
             try {
-                // 3. API Call
+                // 1. Get AI Response
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -325,170 +462,112 @@
                 });
 
                 const data = await response.json();
-                loadingDiv.remove();
+                chatContainer.removeChild(loadingDiv);
 
                 if (data.status === 'success') {
+                    appendMessageUI('ai', data.content, currentChat.messages.length);
                     currentChat.messages.push({ role: 'assistant', content: data.content });
-                    appendMessageUI('ai', data.content, msgIndex + 1);
-                    
-                    // 4. Auto Rename (Background)
-                    generateAutoTitle();
+                    saveHistory();
+
+                    // 2. Auto-Generate Title (Every message to keep it fresh, approx 5 words)
+                    updateTitleInBackground(currentChat);
                 } else {
                     appendMessageUI('ai', `⚠️ Error: ${data.message}`, -1);
                 }
-
             } catch (err) {
-                loadingDiv.remove();
-                appendMessageUI('ai', `⚠️ Network Error`, -1);
+                chatContainer.removeChild(loadingDiv);
+                appendMessageUI('ai', `⚠️ Network Error: ${err.message}`, -1);
             }
 
-            saveHistory();
             sendBtn.disabled = false;
         }
 
-        // --- Edit Message Logic ---
-        function editMessage(index) {
-            const chat = chatHistories[activeChatId];
-            const msgToEdit = chat.messages[index];
-            
-            // 1. Put text back in input
-            userInput.value = msgToEdit.content;
-            userInput.focus();
-            
-            // 2. Delete this message and everything after it
-            chat.messages = chat.messages.slice(0, index);
-            
-            // 3. Re-render UI
-            renderChatUI();
-            saveHistory();
-        }
-
-        // --- Title Logic ---
-        async function generateAutoTitle() {
-            const chat = chatHistories[activeChatId];
-            // Only generate if messages > 2 to save calls, or every time if you prefer
+        async function updateTitleInBackground(chat) {
+            // Only update title if chat has minimal length to save tokens, or do it every time as requested
             try {
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        model: 'gemini-2.5-flash-lite', // Use cheap model for titles
+                        model: "gemini-2.5-flash-lite", // Use cheaper/faster model for titles
                         messages: chat.messages,
                         isTitleGeneration: true
                     })
                 });
                 const data = await response.json();
                 if(data.status === 'success' && data.content) {
-                    chat.title = data.content.trim().substring(0, 30); // Limit length
+                    let cleanTitle = data.content.replace(/["\n]/g, '').trim();
+                    if(cleanTitle.length > 30) cleanTitle = cleanTitle.substring(0, 30) + "...";
+                    chat.title = cleanTitle;
                     saveHistory();
                     renderHistoryList();
                 }
-            } catch(e) { console.log('Title Gen Error', e); }
-        }
-
-        function manualRename(id, newTitle) {
-            if(chatHistories[id]) {
-                chatHistories[id].title = newTitle;
-                saveHistory();
-                renderHistoryList(); // Re-render to remove input box
+            } catch(e) {
+                console.log("Title auto-gen failed silently", e);
             }
         }
 
-        function showRenameInput(id) {
-            const item = document.querySelector(`.history-item[onclick="loadChat('${id}')"]`);
-            if(item) {
-                const currentTitle = chatHistories[id].title;
-                item.innerHTML = `
-                    <input type="text" class="history-input" value="${currentTitle}" 
-                    onblur="manualRename('${id}', this.value)" 
-                    onkeydown="if(event.key==='Enter') manualRename('${id}', this.value)">
-                `;
-                item.querySelector('input').focus();
-                item.onclick = null; // Prevent click from reloading chat while editing
-            }
+        function saveHistory() {
+            localStorage.setItem('hkdse_chats_v3', JSON.stringify(chatHistories));
         }
 
-        function deleteChat(e, id) {
-            e.stopPropagation();
-            if(confirm('Delete?')) {
-                delete chatHistories[id];
-                saveHistory();
-                if(activeChatId === id) createNewChat();
-                else renderHistoryList();
-            }
-        }
-
-        function renderHistoryList() {
-            const list = document.getElementById('history-list');
-            list.innerHTML = Object.keys(chatHistories).sort().reverse().map(id => `
-                <li class="history-item ${id === activeChatId ? 'active' : ''}" onclick="loadChat('${id}')">
-                    <span class="history-title">${chatHistories[id].title}</span>
-                    <div class="item-actions">
-                        <button class="icon-btn" onclick="event.stopPropagation(); showRenameInput('${id}')">✎</button>
-                        <button class="icon-btn" onclick="deleteChat(event, '${id}')">×</button>
-                    </div>
-                </li>
-            `).join('');
-        }
-
-        // --- Profile & Avatar ---
+        // --- Profile Logic ---
         function openProfile() {
             document.getElementById('p-name').value = userProfile.name;
             document.getElementById('p-form').value = userProfile.form;
             document.getElementById('p-about').value = userProfile.about;
-            document.getElementById('modal-avatar-preview').src = userProfile.avatar || DEFAULT_USER_AVATAR;
+            document.getElementById('p-preview').src = userProfile.avatar;
             document.getElementById('profile-modal').classList.add('active');
         }
 
-        // Handle Image Upload & Resize (Client Side)
-        document.getElementById('avatar-upload').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if(!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const img = new Image();
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    // Resize to 100x100 to save LocalStorage space
-                    canvas.width = 100;
-                    canvas.height = 100;
-                    ctx.drawImage(img, 0, 0, 100, 100);
-                    const base64 = canvas.toDataURL('image/jpeg', 0.8);
-                    
-                    document.getElementById('modal-avatar-preview').src = base64;
-                    userProfile.tempAvatar = base64; // Temp store
-                }
-                img.src = event.target.result;
+        function closeProfile() {
+            document.getElementById('profile-modal').classList.remove('active');
+        }
+
+        function handleImageUpload(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('p-preview').src = e.target.result;
+                };
+                reader.readAsDataURL(input.files[0]);
             }
-            reader.readAsDataURL(file);
-        });
+        }
 
         function saveProfile() {
             userProfile.name = document.getElementById('p-name').value;
             userProfile.form = document.getElementById('p-form').value;
             userProfile.about = document.getElementById('p-about').value;
-            if(userProfile.tempAvatar) {
-                userProfile.avatar = userProfile.tempAvatar;
-                delete userProfile.tempAvatar;
-            }
+            userProfile.avatar = document.getElementById('p-preview').src;
             
-            localStorage.setItem('hkdse_profile', JSON.stringify(userProfile));
+            localStorage.setItem('hkdse_profile_v3', JSON.stringify(userProfile));
             loadProfileUI();
-            document.getElementById('profile-modal').classList.remove('active');
-            renderChatUI(); // Update avatars in current chat
+            closeProfile();
+            
+            // Refresh current chat to show new avatar
+            if(activeChatId) renderChatUI();
         }
 
         function loadProfileUI() {
-            document.getElementById('profile-name').innerText = userProfile.name;
-            document.getElementById('sidebar-avatar').src = userProfile.avatar || DEFAULT_USER_AVATAR;
+            document.getElementById('profile-name-sidebar').innerText = userProfile.name;
+            document.getElementById('profile-form-sidebar').innerText = userProfile.form;
+            document.getElementById('profile-img-sidebar').src = userProfile.avatar;
         }
 
-        function saveHistory() { localStorage.setItem('hkdse_chats', JSON.stringify(chatHistories)); }
-        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
-        document.getElementById('profile-modal').addEventListener('click', (e) => {
-            if (e.target.id === 'profile-modal') e.target.classList.remove('active');
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', (e) => {
+            const sidebar = document.getElementById('sidebar');
+            const menuBtn = document.querySelector('.menu-btn');
+            if (window.innerWidth <= 768 && 
+                sidebar.classList.contains('open') && 
+                !sidebar.contains(e.target) && 
+                !menuBtn.contains(e.target)) {
+                sidebar.classList.remove('open');
+            }
         });
     </script>
 </body>
